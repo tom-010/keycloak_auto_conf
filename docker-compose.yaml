@@ -1,0 +1,52 @@
+version: "3.9"
+
+services:
+
+  reverse-proxy:
+    build: reverse_proxy
+    ports:
+      - "80:80"
+    depends_on:
+      - auth
+      - login
+
+  login:
+    build: login
+    environment:
+      REALM: '${KEYCLOAK_REALM}'
+      CLIENT_ID: '${KEYCLOAK_CLIENT_ID}'
+      CLIENT_SECRET: '${KEYCLOAK_CLIENT_SECRET}'
+      KEYCLOAK_URL: 'http://auth:8080'
+    expose:
+      - 8001
+    depends_on:
+      - auth
+
+  auth:
+      image: jboss/keycloak:latest
+      environment:
+        KEYCLOAK_IMPORT: /opt/jboss/keycloak/imports/realm.json -Dkeycloak.profile.feature.upload_scripts=enabled
+        DB_VENDOR: postgres
+        DB_ADDR: auth-db
+        DB_DATABASE: auth-db
+        DB_USER: auth-db
+        DB_SCHEMA: public
+        DB_PASSWORD: password
+      volumes:
+        - ./keycloak/realms:/opt/jboss/keycloak/imports
+      expose:
+        - 8080
+      depends_on:
+        - auth-db
+
+  auth-db:
+      image: postgres
+      volumes:
+        - auth-db-data:/var/lib/postgresql/data
+      environment:
+        POSTGRES_DB: auth-db
+        POSTGRES_USER: auth-db
+        POSTGRES_PASSWORD: password
+
+volumes:
+  auth-db-data:
